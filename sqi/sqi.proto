@@ -1,0 +1,122 @@
+syntax = "proto3";
+import "google/protobuf/empty.proto";
+
+package pb;
+option go_package = "github.com/edenzhang12/storagequotainterface/sqi/pb";
+
+// === Core Service ===
+service QuotaService {
+  //插件信息
+  rpc GetPluginInfo(PluginInfoRequest) returns (PluginInfoResponse);
+  //插件能力
+  rpc GetPluginCapabilities(GetPluginCapabilitiesRequest)
+      returns (GetPluginCapabilitiesResponse);
+  //设置配额
+  rpc SetQuota(SetQuotaRequest) returns (SetQuotaResponse);
+  //获取配额和用量
+  rpc GetQuota(GetQuotaRequest) returns (GetQuotaResponse);
+  //清理配额
+  rpc ClearQuota(ClearQuotaRequest) returns (google.protobuf.Empty);
+  //查看所有配额
+  rpc ListQuotas(ListQuotasRequest) returns (ListQuotasResponse);
+
+  // Optional
+  //校验设置配额请求是否正确
+  rpc ValidateQuotaRequest(SetQuotaRequest) returns (google.protobuf.Empty);
+}
+
+message PluginInfoRequest {}
+
+message PluginInfoResponse {
+  string name = 1;
+  string vendor_version = 2;
+}
+
+message GetPluginCapabilitiesRequest {}
+
+message PluginCapability {
+  enum RpcType {
+    UNKNOWN_RPC = 0;
+    SET_QUOTA = 1;
+    CLEAR_QUOTA = 2;
+    GET_QUOTA = 3;
+    LIST_QUOTA = 4;
+    VALIDATE_QUOTA = 5;
+    TARGET_INFO = 6;
+  }
+
+  enum QuotaType {
+    UNKNOWN_QUOTA = 0;
+    SIZE = 1;   // 限制空间大小（bytes）
+    INODES = 2; // 限制文件个数（inodes）
+  }
+
+  enum IdType {
+    UNKNOWN_ID = 0;
+    PATH = 1; // 路径作为配额id
+    VENDOR =
+        2; // 存储厂商生成配额id，创建配额接口调用后，生成配额id，后面需要用这个配额id调用其他接口
+  }
+
+  oneof capability {
+    RpcType rpc = 1;
+    QuotaType quota = 2;
+    IdType id = 3;
+  }
+}
+
+message GetPluginCapabilitiesResponse {
+  repeated PluginCapability capabilities = 1;
+}
+
+message QuotaTarget {
+  enum Scope {
+    UNKNOWN = 0;
+    PATH = 1;   // 文件系统路径
+    VOLUME = 2; // 卷 ID
+    TENANT = 3; // 租户
+    USER = 4;   // 用户
+    GROUP = 5;  // 组
+  }
+  Scope scope = 1;
+  string id = 2; // 例如：/mnt/data、vol-123、tenant-a、user-xyz
+}
+
+message SetQuotaRequest {
+  QuotaTarget target = 1;
+  uint64 size_bytes = 2; // 可选：限制空间大小（单位 Byte）
+  uint64 files = 3;      // 可选：限制文件个数（inodes）
+  map<string, string> parameters = 4; // 插件可选参数，用于扩展
+}
+
+message SetQuotaResponse {
+  map<string, string> info = 2; // 可选返回的其他信息，用于扩展
+}
+
+message GetQuotaRequest { QuotaTarget target = 1; }
+
+message GetQuotaResponse { QuotaEntry entrie = 1; }
+
+message ClearQuotaRequest { QuotaTarget target = 1; }
+
+message ListQuotasRequest {
+  int32 start = 1;
+  int32 limit = 2;
+  QuotaTarget.Scope filter_scope = 3; //用于 按目标类型过滤 quota 项
+}
+
+message ListQuotasResponse {
+  repeated QuotaEntry entries = 1;
+  string continue_token = 2;
+}
+
+message QuotaEntry {
+  QuotaTarget target = 1;
+  uint64 size_bytes = 2;        // 已设置的空间限制
+  uint64 used_bytes = 3;        // 已使用的空间大小
+  bool size_quota_enable = 4;   // 是否设置大小配额
+  uint64 files = 5;             // 已设置的文件数限制
+  uint64 used_files = 6;        // 当前使用的文件数
+  bool inode_quota_enable = 7;  // 是否设置文件个数配额
+  map<string, string> info = 8; // 插件可选返回的其他信息
+}
