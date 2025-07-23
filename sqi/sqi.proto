@@ -95,14 +95,14 @@ message SetQuotaResponse {
 
 message GetQuotaRequest { QuotaTarget target = 1; }
 
-message GetQuotaResponse { QuotaEntry entrie = 1; }
+message GetQuotaResponse { QuotaEntry entry = 1; }
 
 message ClearQuotaRequest { QuotaTarget target = 1; }
 
 message ListQuotasRequest {
-  int32 start = 1;
-  int32 limit = 2;
-  QuotaTarget.Scope filter_scope = 3; //用于 按目标类型过滤 quota 项
+  int32 limit = 1;
+  string continue_token = 2;
+  QuotaTarget target = 3;
 }
 
 message ListQuotasResponse {
